@@ -22,7 +22,7 @@ Pick the cheapest source that contains the full text, in this order:
 2. **Local PDF** - if the user provided a PDF (or saved it to a known folder such as `papers/`), run `scripts/phase1_triage.py` on it.
 3. **Paywalled paper with no PDF** - do not try to bypass the paywall. Ask the user to download the PDF through their institutional access or the journal site and drop it into the working folder.
 
-Install the script dependencies once if they are missing: `pip install -r requirements.txt` (pdfplumber, pypdf, pypdfium2).
+Install the script dependencies once if they are missing: `pip install -r requirements.txt` (pdfplumber, pypdf, pypdfium2, Pillow).
 
 ## Token-Efficient Architecture
 

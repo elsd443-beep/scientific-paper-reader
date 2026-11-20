@@ -18,7 +18,7 @@ This skill synthesizes five complementary methodologies for reading and critical
 scientific-paper-reader/
 ├── SKILL.md                             # Core Agent Skill instructions & 3-phase workflow
 ├── README.md                            # GitHub documentation & installation guide
-├── requirements.txt                     # Script dependencies (pdfplumber, pypdf, pypdfium2)
+├── requirements.txt                     # Script dependencies (pdfplumber, pypdf, pypdfium2, Pillow)
 ├── requirements-dev.txt                 # + pytest and reportlab for the tests
 ├── scripts/
 │   └── phase1_triage.py                 # Token-saving Phase 1 parser, section splitter & selective figure renderer
