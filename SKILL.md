@@ -1,6 +1,6 @@
 ---
 name: scientific-paper-reader
-description: Methodically read, analyze, and critically appraise scientific papers in three progressive phases with token-efficient figure and table triage. Use when the user uploads, links, or asks to read, study, summarize, critique, review, or extract methodology and research gaps from a scientific article, journal paper, preprint, clinical trial, or systematic review.
+description: Methodically read, analyze, and critically appraise scientific papers in three progressive phases with token-efficient figure and table triage, plus a Divulgation mode that turns a paper into story material for science communication. Use when the user uploads, links, or asks to read, study, summarize, critique, review, or extract methodology and research gaps from a scientific article, journal paper, preprint, clinical trial, or systematic review (also in Spanish - "lee/analiza/resume este artículo o paper", "revisión crítica", "divulgación").
 ---
 
 # Scientific Paper Reader
@@ -14,12 +14,22 @@ Read and critically appraise scientific literature using an evidence-based, thre
 - The user wants to screen a paper quickly (Phase 1) before deciding whether to spend time and tokens on a full deep dive (Phases 2 and 3).
 - The user wants to identify statistical validity, methodological flaws, research gaps, or future project ideas from a study.
 
+## Getting the Full Text (Step 0)
+
+Pick the cheapest source that contains the full text, in this order:
+
+1. **PubMed Central (PMC) full text** - if the paper has a PMCID (or the DOI/PMID maps to one) and a PubMed/PMC tool is available, retrieve the full text through it first. Zero vision tokens, and Results/Discussion numbers come with it. Figures are NOT included: use the PDF route below when a figure must be inspected.
+2. **Local PDF** - if the user provided a PDF (or saved it to a known folder such as `papers/`), run `scripts/phase1_triage.py` on it.
+3. **Paywalled paper with no PDF** - do not try to bypass the paywall. Ask the user to download the PDF through their institutional access or the journal site and drop it into the working folder.
+
+Install the script dependencies once if they are missing: `pip install -r requirements.txt` (pdfplumber, pypdf, pypdfium2, Pillow).
+
 ## Token-Efficient Architecture
 
 Never ingest or vision-render an entire multi-page PDF at once unless explicitly asked for an immediate full-paper review. Use progressive disclosure across three phases:
 
 1. **Phase 1 (Low-Token Triage, ~500-1,200 tokens)**: Run `scripts/phase1_triage.py` on local PDFs to extract only the Title, Abstract, Section Headings, Conclusions, Figure/Table Captions, and parsed Markdown tables. Inspect visual figures only via caption-first triage or selective page rendering (`--render-figures`).
-2. **Phase 2 (Targeted Deep Read, ~1,500-3,000 tokens)**: Read the Introduction, Materials and Methods, Results, and Discussion text only after Phase 1 confirms relevance (or immediately if the user requested a complete analysis upfront).
+2. **Phase 2 (Targeted Deep Read, ~1,500-3,000 tokens)**: Read the Introduction, Materials and Methods, Results, and Discussion text only after Phase 1 confirms relevance (or immediately if the user requested a complete analysis upfront). For PDFs, extract only the needed sections with `--sections methods,results,discussion` and read the files in `sections/` instead of the whole manuscript.
 3. **Phase 3 (Critical Reconstruction, ~800-1,500 tokens)**: Evaluate internal/external validity, statistical vs. clinical significance, unstated assumptions, research gaps, and actionable takeaways using `references/appraisal-checklists.md`.
 
 ## Steps
@@ -66,7 +76,13 @@ Never start reading an article from beginning to end. Establish the bird's-eye v
 
 ### Step 3: Phase 2 - Detailed Reading and Methodology Analysis
 
-Once relevance is confirmed, analyze the execution and context of the study:
+Once relevance is confirmed, analyze the execution and context of the study. For a local PDF, pull only the sections you need:
+
+```bash
+python3 scripts/phase1_triage.py "<path-to-paper.pdf>" --output-dir ./triage_out --sections introduction,methods,results,discussion
+```
+
+Each section is written to `triage_out/sections/<name>.md` (use `--sections all` to list everything that was detected; `triage_summary.json` reports `sections_available` and `sections_missing`).
 
 1. **Introduction (Context, Gap, and Hypothesis)**:
    - Summarize the background context in 3-5 sentences ([Raff 2013](https://violentmetaphors.com/2013/08/25/how-to-read-and-understand-a-scientific-paper-2/)).
@@ -108,9 +124,26 @@ Perform a rigorous peer-reviewer appraisal ([Keshav 2007](http://ccr.sigcomm.org
    - Apply Carey's **Rule 10 (Build on It)**: Identify transferable methodologies, theoretical frameworks, datasets, or experimental designs that the user can replicate, adapt, or extend in their own research.
    - Format the final output using `assets/study-note-template.md` when producing a complete study note.
 
+### Step 5 (Optional): Divulgation Mode - From Paper to Story
+
+Use when the goal is science communication (a short video, post, thread or class) rather than peer review. Run Phase 1 and Phase 2 first (Full text, not only the abstract), then fill `assets/divulgation-brief-template.md`:
+
+1. **Hook number**: the single most surprising quantitative result, quoted with its unit, its section/figure, and the assumptions it depends on (e.g. a modelled value, a specific temperature, pH or sample).
+2. **The problem**: what challenge the organism/system faces, in one plain sentence.
+3. **The solution(s) and their cost**: how it copes (1-3 mechanisms) and the trade-off the authors report.
+4. **The comparison**: another species, condition or prior study that makes the result meaningful.
+5. **The twist / what is still unknown**: the authors' own limitations or open questions, with their hedging words preserved ("may", "suggests").
+6. **The figure worth recreating**: which figure/table, its axes, groups and key values, so it can be redrawn (e.g. in Manim) without copying the original image.
+7. **Do-not-say list**: popular claims about the topic that this paper does NOT support.
+
+Rules: keep the authors' level of certainty (a model estimate stays "estimated"); every number in the brief cites its section, table or figure; never invent DOIs or values.
+
 ## Gotchas
 
 - **Vision Token Bloat**: Never convert every page of a PDF to high-resolution PNGs in Phase 1. Always parse text captions and tables first via `scripts/phase1_triage.py`, and render only targeted figure pages at 120 DPI when visual inspection is required.
 - **Confusing Statistical with Practical Significance**: A small p-value (`p < 0.05`) in a large sample does not mean the effect is clinically or practically meaningful. Always report effect sizes, confidence intervals, or absolute differences alongside p-values.
 - **Accepting Discussion Claims as Raw Facts**: Authors naturally frame their Discussion to support their hypothesis. Always compare the raw numbers in the Results/Tables against the rhetorical claims in the Discussion.
 - **Skipping Baseline-to-End Subject Accounting**: Unexplained sample attrition or excluded outliers can invalidate an otherwise clean statistical test. Always check whether `N` in the Methods matches `n` in the Results tables and figures.
+- **Abstract-Only Reading**: The abstract rarely carries the assumptions behind a number. For any figure you quote, open the Results/Discussion (or the PMC full text) and note the conditions it depends on.
+- **Structured Abstracts Have Their Own "Results/Conclusions" Headings**: The triage script reports both; the real body section is the later (and longer) one. `conclusion_source` in `triage_summary.json` tells you whether the conclusion came from a Conclusion heading, the end of the Discussion, or a fallback.
+- **Vector Figures**: Most charts are vector drawings, not embedded images. The script flags pages with many vector objects (`pages_with_vector_graphics`); still trust captions first and render only the pages you need.
